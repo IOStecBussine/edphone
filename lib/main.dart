@@ -1,121 +1,347 @@
-import 'package:material_ui/material_ui.dart';
+
+import 'package:flutter/material.dart';
+
+const azul = Color(0xFF168BFF);
+const fondo = Color(0xFF06152F);
+const tarjeta = Color(0xFF102C50);
 
 void main() {
-  runApp(const MyApp());
+  runApp(const EdphoneApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class EdphoneApp extends StatelessWidget {
+  const EdphoneApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+      title: 'EDPHONE ASISTENCIA TÉCNICA',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: fondo,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: azul,
+          brightness: Brightness.dark,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: tarjeta,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const Bienvenida(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class Bienvenida extends StatelessWidget {
+  const Bienvenida({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(25),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.phone_android, size: 85, color: azul),
+                const SizedBox(height: 20),
+                const Text(
+                  'EDPHONE',
+                  style: TextStyle(
+                    fontSize: 35,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 3,
+                  ),
+                ),
+                const Text(
+                  'ASISTENCIA TÉCNICA',
+                  style: TextStyle(
+                    color: azul,
+                    fontSize: 15,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  'Tu servicio técnico, siempre cerca.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 45),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const Acceso(),
+                      ),
+                    ),
+                    child: const Text('INGRESAR'),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const Registro(),
+                      ),
+                    ),
+                    child: const Text('CREAR CUENTA'),
+                  ),
+                ),
+                const SizedBox(height: 50),
+                const Text(
+                  'EDPHONE © 2026',
+                  style: TextStyle(color: Colors.white38),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+    );
+  }
+}
+
+class Acceso extends StatelessWidget {
+  const Acceso({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final correo = TextEditingController();
+    final pin = TextEditingController();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Ingresar')),
+      body: Padding(
+        padding: const EdgeInsets.all(22),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const Icon(Icons.lock_outline, color: azul, size: 65),
+            const SizedBox(height: 25),
+            const Text(
+              'Bienvenido nuevamente',
+              style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 25),
+            TextField(
+              controller: correo,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: pin,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'PIN',
+                prefixIcon: Icon(Icons.lock),
+              ),
+            ),
+            const SizedBox(height: 25),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('El acceso se conectará con Firebase.'),
+                    ),
+                  );
+                },
+                child: const Text('CONTINUAR'),
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class Registro extends StatelessWidget {
+  const Registro({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Crear cuenta')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          children: [
+            const Icon(Icons.person_add_alt_1, color: azul, size: 60),
+            const SizedBox(height: 15),
+            const Text(
+              'Registro de cliente',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 25),
+            const Campo(label: 'Nombre y apellido', icon: Icons.person),
+            const SizedBox(height: 15),
+            const Campo(label: 'Correo electrónico', icon: Icons.email),
+            const SizedBox(height: 15),
+            const Campo(label: 'Teléfono', icon: Icons.phone),
+            const SizedBox(height: 15),
+            const Campo(
+              label: 'Crear PIN',
+              icon: Icons.lock,
+              secreto: true,
+            ),
+            const SizedBox(height: 25),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('El registro se conectará con Firebase.'),
+                    ),
+                  );
+                },
+                child: const Text('REGISTRARME'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Campo extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool secreto;
+
+  const Campo({
+    super.key,
+    required this.label,
+    required this.icon,
+    this.secreto = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      obscureText: secreto,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+      ),
+    );
+  }
+}
+
+class Panel extends StatefulWidget {
+  const Panel({super.key});
+
+  @override
+  State<Panel> createState() => _PanelState();
+}
+
+class _PanelState extends State<Panel> {
+  int seleccionado = 0;
+
+  final titulos = [
+    'Mis reparaciones',
+    'Mi historial',
+    'Soporte técnico',
+    'Mi perfil',
+  ];
+
+  final iconos = [
+    Icons.build,
+    Icons.history,
+    Icons.support_agent,
+    Icons.person,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('EDPHONE'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const Bienvenida(),
+                ),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(iconos[seleccionado], color: azul, size: 65),
+            const SizedBox(height: 18),
+            Text(
+              titulos[seleccionado],
+              style: const TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Aquí encontrarás tus servicios de EDPHONE.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: seleccionado,
+        onDestinationSelected: (i) {
+          setState(() => seleccionado = i);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.build),
+            label: 'Reparaciones',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history),
+            label: 'Historial',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent),
+            label: 'Soporte',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        ],
       ),
     );
   }
