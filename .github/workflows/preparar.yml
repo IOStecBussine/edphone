@@ -3,7 +3,7 @@ name: Preparar EDPHONE
 
 on:
   workflow_dispatch:
-
+  push:
 permissions:
   contents: write
 
