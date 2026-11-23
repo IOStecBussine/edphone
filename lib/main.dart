@@ -6,7 +6,7 @@ const fondo = Color(0xFF06152F);
 const tarjeta = Color(0xFF102C50);
 
 void main() {
-  runApp(const EdphoneApp());
+  runApp(const MyApp());
 }
 
 class EdphoneApp extends StatelessWidget {
