@@ -24,7 +24,12 @@ jobs:
       - name: Crear aplicacion
         run: |
           flutter create --org com.edphone --project-name edphone --platforms android .
-
+     
+      - name: Verificar codigo Flutter
+        run: |
+          flutter pub get
+          flutter analyze
+     
       - name: Guardar archivos
         run: |
           git config user.name "github-actions[bot]"
