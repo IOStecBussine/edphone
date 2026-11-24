@@ -1,12 +1,23 @@
 
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 const azul = Color(0xFF168BFF);
 const fondo = Color(0xFF06152F);
 const tarjeta = Color(0xFF102C50);
 
-void main() {
+String? errorFirebase;
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    errorFirebase = e.toString();
+    debugPrint('Error Firebase: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -130,6 +141,14 @@ class Bienvenida extends StatelessWidget {
                   'EDPHONE © 2026',
                   style: TextStyle(color: Colors.white38),
                 ),
+                if (errorFirebase != null) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'No se pudo conectar con Firebase.',
+                    style: TextStyle(color: Colors.redAccent),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
             ),
           ),
@@ -163,6 +182,7 @@ class Acceso extends StatelessWidget {
             const Campo(
               etiqueta: 'Correo electrónico',
               icono: Icons.email,
+              teclado: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
             const Campo(
@@ -178,7 +198,7 @@ class Acceso extends StatelessWidget {
               onPressed: () {
                 mensaje(
                   context,
-                  'El inicio de sesión se habilitará al conectar Firebase.',
+                  'El inicio de sesión se habilitará en el siguiente paso.',
                 );
               },
             ),
@@ -186,7 +206,7 @@ class Acceso extends StatelessWidget {
               onPressed: () {
                 mensaje(
                   context,
-                  'La recuperación de cuenta se habilitará con Firebase.',
+                  'La recuperación de cuenta se habilitará próximamente.',
                 );
               },
               child: const Text('¿Olvidaste tu PIN?'),
@@ -253,7 +273,7 @@ class Registro extends StatelessWidget {
               onPressed: () {
                 mensaje(
                   context,
-                  'El registro estará disponible al conectar Firebase.',
+                  'El registro se habilitará en el siguiente paso.',
                 );
               },
             ),
