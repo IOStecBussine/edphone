@@ -193,10 +193,17 @@ class _AccesoState extends State<Acceso> {
         email: correo.text.trim(),
         password: contrasena.text,
       );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const Panel()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
-      mensaje(context, traducirError(e.code));
+      if (mounted) mensaje(context, traducirError(e.code));
     } catch (e) {
-      mensaje(context, 'No se pudo ingresar: $e');
+      if (mounted) mensaje(context, 'No se pudo ingresar: $e');
     } finally {
       if (mounted) setState(() => cargando = false);
     }
@@ -334,9 +341,12 @@ class _RegistroState extends State<Registro> {
         'fechaRegistro': FieldValue.serverTimestamp(),
       });
 
-      if (mounted) {
-  Navigator.of(context).popUntil((route) => route.isFirst);
-      }
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const Panel()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
       if (mounted) mensaje(context, traducirError(e.code));
     } on FirebaseException catch (e) {
@@ -457,7 +467,20 @@ class _PanelState extends State<Panel> {
   ];
 
   Future<void> cerrarSesion() async {
-    await FirebaseAuth.instance.signOut();
+    try {
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const Bienvenida()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (mounted) {
+        mensaje(context, 'No se pudo cerrar sesión.');
+      }
+    }
   }
 
   @override
