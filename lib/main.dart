@@ -498,9 +498,11 @@ class _PanelState extends State<Panel> {
           ),
         ],
       ),
-      body: seleccionado == 3
-          ? Perfil(usuario: usuario)
-          : Center(
+      body: seleccionado == 0
+    ? const MisReparaciones()
+    : seleccionado == 3
+        ? Perfil(usuario: usuario)
+        : Center(
               child: Padding(
                 padding: const EdgeInsets.all(25),
                 child: Column(
@@ -558,7 +560,174 @@ class _PanelState extends State<Panel> {
     );
   }
 }
+class MisReparaciones extends StatefulWidget {
+  const MisReparaciones({super.key});
 
+  @override
+  State<MisReparaciones> createState() => _MisReparacionesState();
+}
+
+class _MisReparacionesState extends State<MisReparaciones> {
+  final marca = TextEditingController();
+  final modelo = TextEditingController();
+  final falla = TextEditingController();
+
+  bool cargando = false;
+
+  Future<void> enviarSolicitud() async {
+    if (marca.text.trim().isEmpty ||
+        modelo.text.trim().isEmpty ||
+        falla.text.trim().isEmpty) {
+      mensaje(context, 'Completa todos los campos.');
+      return;
+    }
+
+    setState(() => cargando = true);
+
+    try {
+      final usuario = FirebaseAuth.instance.currentUser!;
+
+      await FirebaseFirestore.instance
+          .collection('reparaciones')
+          .add({
+        'uid': usuario.uid,
+        'cliente': usuario.displayName ?? 'Cliente',
+        'correo': usuario.email ?? '',
+        'marca': marca.text.trim(),
+        'modelo': modelo.text.trim(),
+        'falla': falla.text.trim(),
+        'estado': 'Pendiente',
+        'fecha': FieldValue.serverTimestamp(),
+      });
+
+      marca.clear();
+      modelo.clear();
+      falla.clear();
+
+      if (mounted) {
+        mensaje(context, '¡Solicitud enviada correctamente!');
+      }
+    } catch (e) {
+      if (mounted) {
+        mensaje(context, 'No se pudo enviar: $e');
+      }
+    } finally {
+      if (mounted) setState(() => cargando = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    marca.dispose();
+    modelo.dispose();
+    falla.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usuario = FirebaseAuth.instance.currentUser!;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Icon(Icons.build_circle, color: azul, size: 65),
+          const SizedBox(height: 12),
+          const Text(
+            'Solicitar reparación',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 22),
+          TextField(
+            controller: marca,
+            decoration: const InputDecoration(
+              labelText: 'Marca del celular',
+              prefixIcon: Icon(Icons.phone_android, color: azul),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: modelo,
+            decoration: const InputDecoration(
+              labelText: 'Modelo del celular',
+              prefixIcon: Icon(Icons.devices, color: azul),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: falla,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Describe la falla',
+              prefixIcon: Icon(Icons.description, color: azul),
+            ),
+          ),
+          const SizedBox(height: 18),
+          BotonPrincipal(
+            texto: cargando ? 'ENVIANDO...' : 'ENVIAR SOLICITUD',
+            icono: Icons.send,
+            onPressed: cargando ? () {} : enviarSolicitud,
+          ),
+          const SizedBox(height: 30),
+          const Text(
+            'Mis solicitudes',
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('reparaciones')
+                .where('uid', isEqualTo: usuario.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Text('No se pudieron cargar las solicitudes.');
+              }
+
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final solicitudes = snapshot.data!.docs;
+
+              if (solicitudes.isEmpty) {
+                return const Text(
+                  'Todavía no tienes solicitudes de reparación.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
+                );
+              }
+
+              return Column(
+                children: solicitudes.map((doc) {
+                  final datos = doc.data();
+
+                  return Card(
+                    color: tarjeta,
+                    child: ListTile(
+                      leading: const Icon(Icons.phone_android, color: azul),
+                      title: Text(
+                        '${datos['marca'] ?? ''} ${datos['modelo'] ?? ''}',
+                      ),
+                      subtitle: Text(
+                        'Falla: ${datos['falla'] ?? ''}\n'
+                        'Estado: ${datos['estado'] ?? 'Pendiente'}',
+                      ),
+                      isThreeLine: true,
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
 class Perfil extends StatelessWidget {
   final User usuario;
 
