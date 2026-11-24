@@ -335,7 +335,7 @@ class _RegistroState extends State<Registro> {
       });
 
       if (mounted) {
-        mensaje(context, '¡Cuenta creada correctamente!');
+  Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) mensaje(context, traducirError(e.code));
