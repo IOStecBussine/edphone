@@ -1,0 +1,78 @@
+name: EDPHONE ADMIN
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Crear proyecto ADMIN
+        run: flutter create --platforms android --org com.edphone --project-name edphone_admin admin_app
+
+      - name: Copiar codigo y Firebase
+        run: |
+          cp admin/lib/main.dart admin_app/lib/main.dart
+          cp admin/google-services.json admin_app/android/app/google-services.json
+
+      - name: Configurar Android y Firebase
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          settings = Path("admin_app/android/settings.gradle.kts")
+          s = settings.read_text()
+          s = s.replace(
+              "plugins {",
+              'plugins {\n    id("com.google.gms.google-services") version "4.4.2" apply false',
+              1
+          )
+          settings.write_text(s)
+
+          app = Path("admin_app/android/app/build.gradle.kts")
+          s = app.read_text()
+          s = s.replace(
+              "plugins {",
+              'plugins {\n    id("com.google.gms.google-services")',
+              1
+          )
+          s = re.sub(r'namespace\s*=\s*"[^"]+"',
+                     'namespace = "com.edphone.admin"', s)
+          s = re.sub(r'applicationId\s*=\s*"[^"]+"',
+                     'applicationId = "com.edphone.admin"', s)
+          s = s.replace("minSdk = flutter.minSdkVersion", "minSdk = 23")
+          app.write_text(s)
+          PY
+
+      - name: Instalar dependencias
+        working-directory: admin_app
+        run: flutter pub add firebase_core firebase_auth cloud_firestore
+
+      - name: Generar APK
+        working-directory: admin_app
+        run: flutter build apk --release
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EDPHONE-ADMIN-APK
+          path: admin_app/build/app/outputs/flutter-apk/app-release.apk
