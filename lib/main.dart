@@ -6,23 +6,29 @@ const fondo = Color(0xFF06152F);
 const tarjeta = Color(0xFF102C50);
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
-class EdphoneApp extends StatelessWidget {
-  const EdphoneApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'EDPHONE ASISTENCIA TÉCNICA',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: fondo,
         colorScheme: ColorScheme.fromSeed(
           seedColor: azul,
           brightness: Brightness.dark,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: fondo,
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -47,62 +53,79 @@ class Bienvenida extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(25),
+            padding: const EdgeInsets.all(26),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.phone_android, size: 85, color: azul),
-                const SizedBox(height: 20),
+                Container(
+                  width: 115,
+                  height: 115,
+                  decoration: BoxDecoration(
+                    color: tarjeta,
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: azul, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.phone_android,
+                    color: azul,
+                    size: 75,
+                  ),
+                ),
+                const SizedBox(height: 28),
                 const Text(
                   'EDPHONE',
                   style: TextStyle(
-                    fontSize: 35,
+                    fontSize: 38,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
+                    letterSpacing: 4,
                   ),
                 ),
+                const SizedBox(height: 8),
                 const Text(
                   'ASISTENCIA TÉCNICA',
                   style: TextStyle(
                     color: azul,
                     fontSize: 15,
-                    letterSpacing: 2,
+                    letterSpacing: 3,
                   ),
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 18),
                 const Text(
                   'Tu servicio técnico, siempre cerca.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
-                const SizedBox(height: 45),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.push(
+                const SizedBox(height: 50),
+                BotonPrincipal(
+                  texto: 'INGRESAR',
+                  icono: Icons.login,
+                  onPressed: () {
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => const Acceso(),
                       ),
-                    ),
-                    child: const Text('INGRESAR'),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 15),
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const Registro(),
-                      ),
-                    ),
-                    child: const Text('CREAR CUENTA'),
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('CREAR CUENTA'),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const Registro(),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(height: 50),
+                const SizedBox(height: 55),
                 const Text(
                   'EDPHONE © 2026',
                   style: TextStyle(color: Colors.white38),
@@ -121,55 +144,52 @@ class Acceso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final correo = TextEditingController();
-    final pin = TextEditingController();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Ingresar')),
-      body: Padding(
-        padding: const EdgeInsets.all(22),
+      appBar: AppBar(title: const Text('Iniciar sesión')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, color: azul, size: 65),
-            const SizedBox(height: 25),
+            const Icon(Icons.lock_outline, size: 70, color: azul),
+            const SizedBox(height: 20),
             const Text(
               'Bienvenido nuevamente',
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 30),
+            const Campo(
+              etiqueta: 'Correo electrónico',
+              icono: Icons.email,
+            ),
+            const SizedBox(height: 16),
+            const Campo(
+              etiqueta: 'PIN',
+              icono: Icons.lock,
+              secreto: true,
+              teclado: TextInputType.number,
             ),
             const SizedBox(height: 25),
-            TextField(
-              controller: correo,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
-                prefixIcon: Icon(Icons.email),
-              ),
+            BotonPrincipal(
+              texto: 'CONTINUAR',
+              icono: Icons.arrow_forward,
+              onPressed: () {
+                mensaje(
+                  context,
+                  'El inicio de sesión se habilitará al conectar Firebase.',
+                );
+              },
             ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: pin,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'PIN',
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-            const SizedBox(height: 25),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('El acceso se conectará con Firebase.'),
-                    ),
-                  );
-                },
-                child: const Text('CONTINUAR'),
-              ),
+            TextButton(
+              onPressed: () {
+                mensaje(
+                  context,
+                  'La recuperación de cuenta se habilitará con Firebase.',
+                );
+              },
+              child: const Text('¿Olvidaste tu PIN?'),
             ),
           ],
         ),
@@ -186,41 +206,56 @@ class Registro extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Crear cuenta')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.person_add_alt_1, color: azul, size: 60),
-            const SizedBox(height: 15),
+            const Icon(
+              Icons.person_add_alt_1,
+              size: 65,
+              color: azul,
+            ),
+            const SizedBox(height: 18),
             const Text(
               'Registro de cliente',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 25),
-            const Campo(label: 'Nombre y apellido', icon: Icons.person),
-            const SizedBox(height: 15),
-            const Campo(label: 'Correo electrónico', icon: Icons.email),
-            const SizedBox(height: 15),
-            const Campo(label: 'Teléfono', icon: Icons.phone),
+            const SizedBox(height: 28),
+            const Campo(
+              etiqueta: 'Nombre y apellido',
+              icono: Icons.person,
+            ),
             const SizedBox(height: 15),
             const Campo(
-              label: 'Crear PIN',
-              icon: Icons.lock,
-              secreto: true,
+              etiqueta: 'Correo electrónico',
+              icono: Icons.email,
+              teclado: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 25),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('El registro se conectará con Firebase.'),
-                    ),
-                  );
-                },
-                child: const Text('REGISTRARME'),
-              ),
+            const SizedBox(height: 15),
+            const Campo(
+              etiqueta: 'Teléfono',
+              icono: Icons.phone,
+              teclado: TextInputType.phone,
+            ),
+            const SizedBox(height: 15),
+            const Campo(
+              etiqueta: 'Crear PIN',
+              icono: Icons.lock,
+              secreto: true,
+              teclado: TextInputType.number,
+            ),
+            const SizedBox(height: 28),
+            BotonPrincipal(
+              texto: 'REGISTRARME',
+              icono: Icons.check_circle,
+              onPressed: () {
+                mensaje(
+                  context,
+                  'El registro estará disponible al conectar Firebase.',
+                );
+              },
             ),
           ],
         ),
@@ -230,27 +265,72 @@ class Registro extends StatelessWidget {
 }
 
 class Campo extends StatelessWidget {
-  final String label;
-  final IconData icon;
+  final String etiqueta;
+  final IconData icono;
   final bool secreto;
+  final TextInputType teclado;
 
   const Campo({
     super.key,
-    required this.label,
-    required this.icon,
+    required this.etiqueta,
+    required this.icono,
     this.secreto = false,
+    this.teclado = TextInputType.text,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       obscureText: secreto,
+      keyboardType: teclado,
       decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
+        labelText: etiqueta,
+        prefixIcon: Icon(icono, color: azul),
       ),
     );
   }
+}
+
+class BotonPrincipal extends StatelessWidget {
+  final String texto;
+  final IconData icono;
+  final VoidCallback onPressed;
+
+  const BotonPrincipal({
+    super.key,
+    required this.texto,
+    required this.icono,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icono),
+        label: Text(
+          texto,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: azul,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void mensaje(BuildContext context, String texto) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(texto)),
+  );
 }
 
 class Panel extends StatefulWidget {
@@ -271,7 +351,7 @@ class _PanelState extends State<Panel> {
   ];
 
   final iconos = [
-    Icons.build,
+    Icons.build_circle,
     Icons.history,
     Icons.support_agent,
     Icons.person,
@@ -284,6 +364,8 @@ class _PanelState extends State<Panel> {
         title: const Text('EDPHONE'),
         actions: [
           IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
@@ -293,30 +375,38 @@ class _PanelState extends State<Panel> {
                 (route) => false,
               );
             },
-            icon: const Icon(Icons.logout),
           ),
         ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(iconos[seleccionado], color: azul, size: 65),
-            const SizedBox(height: 18),
-            Text(
-              titulos[seleccionado],
-              style: const TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(iconos[seleccionado], color: azul, size: 75),
+              const SizedBox(height: 22),
+              Text(
+                titulos[seleccionado],
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Aquí encontrarás tus servicios de EDPHONE.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
-            ),
-          ],
+              const SizedBox(height: 15),
+              const Text(
+                'EDPHONE ASISTENCIA TÉCNICA',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 25),
+              const Text(
+                'Tu información y tus servicios estarán disponibles aquí.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -326,7 +416,7 @@ class _PanelState extends State<Panel> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.build),
+            icon: Icon(Icons.build_circle),
             label: 'Reparaciones',
           ),
           NavigationDestination(
