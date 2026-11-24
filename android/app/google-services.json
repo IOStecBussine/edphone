@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "992469231598",
+    "project_id": "edphone-b3d05",
+    "storage_bucket": "edphone-b3d05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:992469231598:android:c31a5e7c7796fc782b50ff",
+        "android_client_info": {
+          "package_name": "com.edphone.edphone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCX8XxstD5__s7qSSJp4TXICDb4SlRoes8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
