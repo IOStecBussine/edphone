@@ -1,4 +1,4 @@
-name: EDPHONE ADMIN
+name: BUILD EDPHONE ADMIN APK
 
 on:
   workflow_dispatch:
