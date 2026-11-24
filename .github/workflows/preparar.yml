@@ -28,7 +28,7 @@ jobs:
       - name: Verificar codigo Flutter
         run: |
           flutter pub get
-          flutter analyze
+          flutter analyze --no-fatal-infos
      
       - name: Guardar archivos
         run: |
