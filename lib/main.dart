@@ -1,23 +1,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 const azul = Color(0xFF168BFF);
 const fondo = Color(0xFF06152F);
 const tarjeta = Color(0xFF102C50);
 
-String? errorFirebase;
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    errorFirebase = e.toString();
-    debugPrint('Error Firebase: $e');
-  }
-
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -50,7 +43,31 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const Bienvenida(),
+      home: const Inicio(),
+    );
+  }
+}
+
+class Inicio extends StatelessWidget {
+  const Inicio({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.data != null) {
+          return const Panel();
+        }
+
+        return const Bienvenida();
+      },
     );
   }
 }
@@ -141,14 +158,6 @@ class Bienvenida extends StatelessWidget {
                   'EDPHONE © 2026',
                   style: TextStyle(color: Colors.white38),
                 ),
-                if (errorFirebase != null) ...[
-                  const SizedBox(height: 20),
-                  const Text(
-                    'No se pudo conectar con Firebase.',
-                    style: TextStyle(color: Colors.redAccent),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
               ],
             ),
           ),
@@ -158,8 +167,67 @@ class Bienvenida extends StatelessWidget {
   }
 }
 
-class Acceso extends StatelessWidget {
+class Acceso extends StatefulWidget {
   const Acceso({super.key});
+
+  @override
+  State<Acceso> createState() => _AccesoState();
+}
+
+class _AccesoState extends State<Acceso> {
+  final correo = TextEditingController();
+  final contrasena = TextEditingController();
+  bool cargando = false;
+
+  Future<void> ingresar() async {
+    if (correo.text.trim().isEmpty ||
+        contrasena.text.isEmpty) {
+      mensaje(context, 'Completa el correo y la contraseña.');
+      return;
+    }
+
+    setState(() => cargando = true);
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: correo.text.trim(),
+        password: contrasena.text,
+      );
+    } on FirebaseAuthException catch (e) {
+      mensaje(context, traducirError(e.code));
+    } catch (e) {
+      mensaje(context, 'No se pudo ingresar: $e');
+    } finally {
+      if (mounted) setState(() => cargando = false);
+    }
+  }
+
+  Future<void> recuperar() async {
+    if (correo.text.trim().isEmpty) {
+      mensaje(context, 'Escribe tu correo electrónico primero.');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: correo.text.trim(),
+      );
+      if (mounted) {
+        mensaje(context, 'Revisa tu correo para recuperar tu contraseña.');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) mensaje(context, traducirError(e.code));
+    } catch (e) {
+      if (mounted) mensaje(context, 'No se pudo enviar el correo.');
+    }
+  }
+
+  @override
+  void dispose() {
+    correo.dispose();
+    contrasena.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,37 +247,32 @@ class Acceso extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 30),
-            const Campo(
-              etiqueta: 'Correo electrónico',
-              icono: Icons.email,
-              teclado: TextInputType.emailAddress,
+            TextField(
+              controller: correo,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email, color: azul),
+              ),
             ),
             const SizedBox(height: 16),
-            const Campo(
-              etiqueta: 'PIN',
-              icono: Icons.lock,
-              secreto: true,
-              teclado: TextInputType.number,
+            TextField(
+              controller: contrasena,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: Icon(Icons.lock, color: azul),
+              ),
             ),
             const SizedBox(height: 25),
             BotonPrincipal(
-              texto: 'CONTINUAR',
+              texto: cargando ? 'INGRESANDO...' : 'CONTINUAR',
               icono: Icons.arrow_forward,
-              onPressed: () {
-                mensaje(
-                  context,
-                  'El inicio de sesión se habilitará en el siguiente paso.',
-                );
-              },
+              onPressed: cargando ? () {} : ingresar,
             ),
             TextButton(
-              onPressed: () {
-                mensaje(
-                  context,
-                  'La recuperación de cuenta se habilitará próximamente.',
-                );
-              },
-              child: const Text('¿Olvidaste tu PIN?'),
+              onPressed: cargando ? null : recuperar,
+              child: const Text('¿Olvidaste tu contraseña?'),
             ),
           ],
         ),
@@ -218,8 +281,86 @@ class Acceso extends StatelessWidget {
   }
 }
 
-class Registro extends StatelessWidget {
+class Registro extends StatefulWidget {
   const Registro({super.key});
+
+  @override
+  State<Registro> createState() => _RegistroState();
+}
+
+class _RegistroState extends State<Registro> {
+  final nombre = TextEditingController();
+  final correo = TextEditingController();
+  final telefono = TextEditingController();
+  final contrasena = TextEditingController();
+  bool cargando = false;
+
+  Future<void> registrar() async {
+    if (nombre.text.trim().isEmpty ||
+        correo.text.trim().isEmpty ||
+        telefono.text.trim().isEmpty ||
+        contrasena.text.isEmpty) {
+      mensaje(context, 'Completa todos los campos.');
+      return;
+    }
+
+    if (contrasena.text.length < 6) {
+      mensaje(context, 'La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    setState(() => cargando = true);
+
+    try {
+      final resultado = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: correo.text.trim(),
+        password: contrasena.text,
+      );
+
+      final usuario = resultado.user!;
+
+      await usuario.updateDisplayName(nombre.text.trim());
+
+      await FirebaseFirestore.instance
+          .collection('clientes')
+          .doc(usuario.uid)
+          .set({
+        'uid': usuario.uid,
+        'nombre': nombre.text.trim(),
+        'correo': correo.text.trim(),
+        'telefono': telefono.text.trim(),
+        'rol': 'cliente',
+        'fechaRegistro': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        mensaje(context, '¡Cuenta creada correctamente!');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) mensaje(context, traducirError(e.code));
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        mensaje(
+          context,
+          'Cuenta creada, pero no se pudieron guardar los datos: ${e.code}',
+        );
+      }
+    } catch (e) {
+      if (mounted) mensaje(context, 'Ocurrió un error: $e');
+    } finally {
+      if (mounted) setState(() => cargando = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    nombre.dispose();
+    correo.dispose();
+    telefono.dispose();
+    contrasena.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -243,39 +384,46 @@ class Registro extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            const Campo(
-              etiqueta: 'Nombre y apellido',
-              icono: Icons.person,
+            TextField(
+              controller: nombre,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Nombre y apellido',
+                prefixIcon: Icon(Icons.person, color: azul),
+              ),
             ),
             const SizedBox(height: 15),
-            const Campo(
-              etiqueta: 'Correo electrónico',
-              icono: Icons.email,
-              teclado: TextInputType.emailAddress,
+            TextField(
+              controller: correo,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email, color: azul),
+              ),
             ),
             const SizedBox(height: 15),
-            const Campo(
-              etiqueta: 'Teléfono',
-              icono: Icons.phone,
-              teclado: TextInputType.phone,
+            TextField(
+              controller: telefono,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Teléfono',
+                prefixIcon: Icon(Icons.phone, color: azul),
+              ),
             ),
             const SizedBox(height: 15),
-            const Campo(
-              etiqueta: 'Crear PIN',
-              icono: Icons.lock,
-              secreto: true,
-              teclado: TextInputType.number,
+            TextField(
+              controller: contrasena,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Crear contraseña (mínimo 6 caracteres)',
+                prefixIcon: Icon(Icons.lock, color: azul),
+              ),
             ),
             const SizedBox(height: 28),
             BotonPrincipal(
-              texto: 'REGISTRARME',
+              texto: cargando ? 'REGISTRANDO...' : 'REGISTRARME',
               icono: Icons.check_circle,
-              onPressed: () {
-                mensaje(
-                  context,
-                  'El registro se habilitará en el siguiente paso.',
-                );
-              },
+              onPressed: cargando ? () {} : registrar,
             ),
           ],
         ),
@@ -284,29 +432,162 @@ class Registro extends StatelessWidget {
   }
 }
 
-class Campo extends StatelessWidget {
-  final String etiqueta;
-  final IconData icono;
-  final bool secreto;
-  final TextInputType teclado;
+class Panel extends StatefulWidget {
+  const Panel({super.key});
 
-  const Campo({
-    super.key,
-    required this.etiqueta,
-    required this.icono,
-    this.secreto = false,
-    this.teclado = TextInputType.text,
-  });
+  @override
+  State<Panel> createState() => _PanelState();
+}
+
+class _PanelState extends State<Panel> {
+  int seleccionado = 0;
+
+  final titulos = [
+    'Mis reparaciones',
+    'Mi historial',
+    'Soporte técnico',
+    'Mi perfil',
+  ];
+
+  final iconos = [
+    Icons.build_circle,
+    Icons.history,
+    Icons.support_agent,
+    Icons.person,
+  ];
+
+  Future<void> cerrarSesion() async {
+    await FirebaseAuth.instance.signOut();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      obscureText: secreto,
-      keyboardType: teclado,
-      decoration: InputDecoration(
-        labelText: etiqueta,
-        prefixIcon: Icon(icono, color: azul),
+    final usuario = FirebaseAuth.instance.currentUser!;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('EDPHONE'),
+        actions: [
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: cerrarSesion,
+          ),
+        ],
       ),
+      body: seleccionado == 3
+          ? Perfil(usuario: usuario)
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(25),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(iconos[seleccionado], color: azul, size: 75),
+                    const SizedBox(height: 22),
+                    Text(
+                      titulos[seleccionado],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'EDPHONE ASISTENCIA TÉCNICA',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 25),
+                    const Text(
+                      'Tu información y tus servicios estarán disponibles aquí.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: seleccionado,
+        onDestinationSelected: (i) {
+          setState(() => seleccionado = i);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.build_circle),
+            label: 'Reparaciones',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history),
+            label: 'Historial',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent),
+            label: 'Soporte',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Perfil extends StatelessWidget {
+  final User usuario;
+
+  const Perfil({super.key, required this.usuario});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('clientes')
+          .doc(usuario.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final datos = snapshot.data?.data();
+
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(25),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.account_circle, size: 80, color: azul),
+                const SizedBox(height: 20),
+                Text(
+                  datos?['nombre'] ?? usuario.displayName ?? 'Cliente',
+                  style: const TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(usuario.email ?? ''),
+                const SizedBox(height: 8),
+                Text(datos?['telefono'] ?? ''),
+                if (snapshot.hasError)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      'No se pudieron cargar los datos del perfil.',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -353,106 +634,26 @@ void mensaje(BuildContext context, String texto) {
   );
 }
 
-class Panel extends StatefulWidget {
-  const Panel({super.key});
-
-  @override
-  State<Panel> createState() => _PanelState();
-}
-
-class _PanelState extends State<Panel> {
-  int seleccionado = 0;
-
-  final titulos = [
-    'Mis reparaciones',
-    'Mi historial',
-    'Soporte técnico',
-    'Mi perfil',
-  ];
-
-  final iconos = [
-    Icons.build_circle,
-    Icons.history,
-    Icons.support_agent,
-    Icons.person,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('EDPHONE'),
-        actions: [
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const Bienvenida(),
-                ),
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(25),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(iconos[seleccionado], color: azul, size: 75),
-              const SizedBox(height: 22),
-              Text(
-                titulos[seleccionado],
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                'EDPHONE ASISTENCIA TÉCNICA',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 25),
-              const Text(
-                'Tu información y tus servicios estarán disponibles aquí.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: seleccionado,
-        onDestinationSelected: (i) {
-          setState(() => seleccionado = i);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.build_circle),
-            label: 'Reparaciones',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history),
-            label: 'Historial',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.support_agent),
-            label: 'Soporte',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
-      ),
-    );
+String traducirError(String codigo) {
+  switch (codigo) {
+    case 'email-already-in-use':
+      return 'Ese correo ya tiene una cuenta.';
+    case 'invalid-email':
+      return 'El correo electrónico no es válido.';
+    case 'weak-password':
+      return 'La contraseña es demasiado débil.';
+    case 'user-not-found':
+    case 'invalid-credential':
+      return 'Correo o contraseña incorrectos.';
+    case 'wrong-password':
+      return 'La contraseña es incorrecta.';
+    case 'network-request-failed':
+      return 'Revisa tu conexión a internet.';
+    case 'too-many-requests':
+      return 'Demasiados intentos. Intenta más tarde.';
+    case 'operation-not-allowed':
+      return 'El acceso por correo aún no está habilitado.';
+    default:
+      return 'No se pudo completar la operación: $codigo';
   }
 }
