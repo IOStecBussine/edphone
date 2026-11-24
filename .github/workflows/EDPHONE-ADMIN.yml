@@ -26,8 +26,7 @@ jobs:
           channel: stable
 
       - name: Crear proyecto ADMIN
-        run: flutter create --platforms android --org com.edphone --project-name edphone_admin admin_app
-
+        run: flutter create --platforms android --org com.edphone --project-name admin admin_app
       - name: Copiar codigo y Firebase
         run: |
           cp admin/lib/main.dart admin_app/lib/main.dart
