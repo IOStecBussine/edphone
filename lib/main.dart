@@ -343,7 +343,7 @@ class _PanelState extends State<Panel> {
 
   @override
   Widget build(BuildContext context) {
-    final usuario = FirebaseAuth.instance.currentUser!;
+    
 
     final paginas = [
       const MisReparaciones(),
