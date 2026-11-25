@@ -30,7 +30,7 @@ jobs:
       - name: Copiar codigo y Firebase
         run: |
           cp admin/lib/main.dart admin_app/lib/main.dart
-          cp admin/google-services.json admin_app/android/app/google-services.json
+          cp admin/lib/google-services.json admin_app/android/app/google-services.json
 
       - name: Configurar Android y Firebase
         run: |
