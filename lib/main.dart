@@ -343,8 +343,6 @@ class _PanelState extends State<Panel> {
 
   @override
   Widget build(BuildContext context) {
-    
-
     final paginas = [
       const MisReparaciones(),
       const Historial(),
@@ -352,44 +350,74 @@ class _PanelState extends State<Panel> {
       const Perfil(),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(titulos[seleccionado]),
-        actions: [
-          IconButton(
-            onPressed: salir,
-            icon: const Icon(Icons.logout),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Deseas cerrar tu sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('NO'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('SÍ'),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: paginas[seleccionado],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: seleccionado,
-        onDestinationSelected: (i) {
-          setState(() => seleccionado = i);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.build_circle),
-            label: 'Reparaciones',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history),
-            label: 'Historial',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.support_agent),
-            label: 'Soporte',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
+        );
+
+        if (confirmar == true) {
+          await FirebaseAuth.instance.signOut();
+          await SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(titulos[seleccionado]),
+          actions: [
+            IconButton(
+              onPressed: salir,
+              icon: const Icon(Icons.logout),
+            ),
+          ],
+        ),
+        body: paginas[seleccionado],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: seleccionado,
+          onDestinationSelected: (i) {
+            setState(() => seleccionado = i);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.build_circle),
+              label: 'Reparaciones',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.history),
+              label: 'Historial',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.support_agent),
+              label: 'Soporte',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person),
+              label: 'Perfil',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
 
 class MisReparaciones extends StatefulWidget {
   const MisReparaciones({super.key});
