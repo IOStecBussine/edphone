@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 const azul = Color(0xFF168BFF);
 const fondo = Color(0xFF06152F);
@@ -10,7 +11,24 @@ const tarjeta = Color(0xFF102C50);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp();
+
+  await OneSignal.initialize(
+    'fd762f68-dc4d-4f1e-91ef-4820bcef6a21',
+  );
+
+  try {
+    await OneSignal.Notifications.requestPermission(true);
+
+    final usuario = FirebaseAuth.instance.currentUser;
+    if (usuario != null) {
+      await OneSignal.login(usuario.uid);
+    }
+  } catch (e) {
+    debugPrint('OneSignal: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -143,10 +161,17 @@ class _AccesoState extends State<Acceso> {
     setState(() => cargando = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credencial =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: correo.text.trim(),
         password: clave.text.trim(),
       );
+
+      try {
+        await OneSignal.login(credencial.user!.uid);
+      } catch (e) {
+        debugPrint('OneSignal login: $e');
+      }
 
       if (!mounted) return;
 
@@ -245,7 +270,10 @@ class _RegistroState extends State<Registro> {
         correo.text.trim().isEmpty ||
         telefono.text.trim().isEmpty ||
         clave.text.length < 6) {
-      mensaje(context, 'Completa todos los campos. La contraseña debe tener al menos 6 caracteres.');
+      mensaje(
+        context,
+        'Completa todos los campos. La contraseña debe tener al menos 6 caracteres.',
+      );
       return;
     }
 
@@ -273,6 +301,12 @@ class _RegistroState extends State<Registro> {
         'rol': 'cliente',
         'fechaRegistro': FieldValue.serverTimestamp(),
       });
+
+      try {
+        await OneSignal.login(usuario.uid);
+      } catch (e) {
+        debugPrint('OneSignal login: $e');
+      }
 
       if (!mounted) return;
 
@@ -369,6 +403,12 @@ class _PanelState extends State<Panel> {
   ];
 
   Future<void> salir() async {
+    try {
+      await OneSignal.logout();
+    } catch (e) {
+      debugPrint('OneSignal logout: $e');
+    }
+
     await FirebaseAuth.instance.signOut();
   }
 
@@ -491,9 +531,13 @@ class _MisReparacionesState extends State<MisReparaciones> {
       modelo.clear();
       falla.clear();
 
-      if (mounted) mensaje(context, '¡Solicitud enviada correctamente!');
+      if (mounted) {
+        mensaje(context, '¡Solicitud enviada correctamente!');
+      }
     } catch (e) {
-      if (mounted) mensaje(context, 'No se pudo enviar la solicitud.');
+      if (mounted) {
+        mensaje(context, 'No se pudo enviar la solicitud.');
+      }
     } finally {
       if (mounted) setState(() => cargando = false);
     }
@@ -769,7 +813,9 @@ class _SoporteState extends State<Soporte> {
         'fecha': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      if (mounted) mensaje(context, 'No se pudo enviar el mensaje.');
+      if (mounted) {
+        mensaje(context, 'No se pudo enviar el mensaje.');
+      }
     }
   }
 
@@ -802,7 +848,9 @@ class _SoporteState extends State<Soporte> {
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return const Center(child: Text('Error al cargar mensajes.'));
+                return const Center(
+                  child: Text('Error al cargar mensajes.'),
+                );
               }
 
               if (!snapshot.hasData) {
@@ -905,6 +953,12 @@ class Perfil extends StatelessWidget {
             BotonPrincipal(
               texto: 'CERRAR SESIÓN',
               onPressed: () async {
+                try {
+                  await OneSignal.logout();
+                } catch (e) {
+                  debugPrint('OneSignal logout: $e');
+                }
+
                 await FirebaseAuth.instance.signOut();
               },
             ),
