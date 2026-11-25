@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -70,14 +71,18 @@ class _AccesoAdminState extends State<AccesoAdmin> {
       if (!documento.exists ||
           documento.data()?['rol'] != 'admin') {
         await FirebaseAuth.instance.signOut();
-        throw Exception('Esta cuenta no tiene acceso de administrador.');
+        throw Exception(
+          'Esta cuenta no tiene acceso de administrador.',
+        );
       }
 
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const PanelAdmin()),
+        MaterialPageRoute(
+          builder: (_) => const PanelAdmin(),
+        ),
       );
     } catch (e) {
       if (mounted) mensaje('Error: $e');
@@ -107,13 +112,18 @@ class _AccesoAdminState extends State<AccesoAdmin> {
           padding: const EdgeInsets.all(25),
           child: Column(
             children: [
-              const Icon(Icons.admin_panel_settings,
-                  size: 85, color: azul),
+              const Icon(
+                Icons.admin_panel_settings,
+                size: 85,
+                color: azul,
+              ),
               const SizedBox(height: 15),
               const Text(
                 'EDPHONE ADMIN',
                 style: TextStyle(
-                    fontSize: 27, fontWeight: FontWeight.bold),
+                  fontSize: 27,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 30),
               TextField(
@@ -171,6 +181,51 @@ class _PanelAdminState extends State<PanelAdmin> {
         .update({'estado': estado});
   }
 
+  Future<void> avisarCliente(
+      Map<String, dynamic> datos, String reparacionId) async {
+    final uid = datos['uid'];
+
+    if (uid == null || uid.toString().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se encontró el cliente.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('notificaciones')
+          .doc(uid)
+          .collection('avisos')
+          .add({
+        'titulo': '¡Tu reparación está terminada!',
+        'mensaje':
+            'Tu ${datos['marca'] ?? ''} ${datos['modelo'] ?? ''} ya está listo. Puedes comunicarte con EDPHONE.',
+        'reparacionId': reparacionId,
+        'fecha': FieldValue.serverTimestamp(),
+        'leida': false,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Aviso enviado al cliente!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo enviar el aviso.'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> salir() async {
     await FirebaseAuth.instance.signOut();
 
@@ -178,7 +233,9 @@ class _PanelAdminState extends State<PanelAdmin> {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const AccesoAdmin()),
+      MaterialPageRoute(
+        builder: (_) => const AccesoAdmin(),
+      ),
       (route) => false,
     );
   }
@@ -187,9 +244,9 @@ class _PanelAdminState extends State<PanelAdmin> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(pagina == 0
-            ? 'EDPHONE ADMIN'
-            : 'MENSAJES DE CLIENTES'),
+        title: Text(
+          pagina == 0 ? 'EDPHONE ADMIN' : 'MENSAJES DE CLIENTES',
+        ),
         backgroundColor: tarjeta,
         actions: [
           IconButton(
@@ -229,18 +286,22 @@ class _PanelAdminState extends State<PanelAdmin> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(
-              child: Text('Error al cargar las reparaciones.'));
+            child: Text('Error al cargar las reparaciones.'),
+          );
         }
 
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
         }
 
         final reparaciones = snapshot.data!.docs;
 
         if (reparaciones.isEmpty) {
           return const Center(
-              child: Text('Todavía no hay reparaciones.'));
+            child: Text('Todavía no hay reparaciones.'),
+          );
         }
 
         return ListView.builder(
@@ -267,9 +328,15 @@ class _PanelAdminState extends State<PanelAdmin> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Cliente: ${datos['cliente'] ?? 'No indicado'}'),
-                    Text('Correo: ${datos['correo'] ?? 'No indicado'}'),
-                    Text('Problema: ${datos['falla'] ?? 'No indicado'}'),
+                    Text(
+                      'Cliente: ${datos['cliente'] ?? 'No indicado'}',
+                    ),
+                    Text(
+                      'Correo: ${datos['correo'] ?? 'No indicado'}',
+                    ),
+                    Text(
+                      'Problema: ${datos['falla'] ?? 'No indicado'}',
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Estado de reparación:',
@@ -280,7 +347,7 @@ class _PanelAdminState extends State<PanelAdmin> {
                       value: [
                         'Pendiente',
                         'En reparación',
-                        'Terminado'
+                        'Terminado',
                       ].contains(estado)
                           ? estado
                           : 'Pendiente',
@@ -304,6 +371,20 @@ class _PanelAdminState extends State<PanelAdmin> {
                         }
                       },
                     ),
+                    if (estado == 'Terminado') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              avisarCliente(datos, doc.id),
+                          icon: const Icon(
+                            Icons.notifications_active,
+                          ),
+                          label: const Text('AVISAR AL CLIENTE'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -314,6 +395,7 @@ class _PanelAdminState extends State<PanelAdmin> {
     );
   }
 }
+
 class ListaConversaciones extends StatelessWidget {
   const ListaConversaciones({super.key});
 
@@ -332,7 +414,9 @@ class ListaConversaciones extends StatelessWidget {
         }
 
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
         }
 
         final conversaciones = snapshot.data!.docs;
@@ -355,7 +439,10 @@ class ListaConversaciones extends StatelessWidget {
               child: ListTile(
                 leading: const CircleAvatar(
                   backgroundColor: azul,
-                  child: Icon(Icons.person, color: Colors.white),
+                  child: Icon(
+                    Icons.person,
+                    color: Colors.white,
+                  ),
                 ),
                 title: Text(datos['cliente'] ?? 'Cliente'),
                 subtitle: Text(datos['ultimoMensaje'] ?? ''),
