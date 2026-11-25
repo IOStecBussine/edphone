@@ -349,7 +349,7 @@ class _PanelState extends State<Panel> {
       const MisReparaciones(),
       const Historial(),
       const Soporte(),
-      Perfil(usuario: usuario),
+      const Perfil(),
     ];
 
     return Scaffold(
