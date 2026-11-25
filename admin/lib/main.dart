@@ -46,13 +46,18 @@ class _AccesoAdminState extends State<AccesoAdmin> {
   bool cargando = false;
 
   Future<void> ingresar() async {
+    if (correo.text.trim().isEmpty || clave.text.isEmpty) {
+      mensaje('Completa los campos.');
+      return;
+    }
+
     setState(() => cargando = true);
 
     try {
       final resultado = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
         email: correo.text.trim(),
-        password: clave.text.trim(),
+        password: clave.text,
       );
 
       final uid = resultado.user!.uid;
@@ -62,7 +67,8 @@ class _AccesoAdminState extends State<AccesoAdmin> {
           .doc(uid)
           .get();
 
-      if (!documento.exists || documento.data()?['rol'] != 'admin') {
+      if (!documento.exists ||
+          documento.data()?['rol'] != 'admin') {
         await FirebaseAuth.instance.signOut();
         throw Exception('Esta cuenta no tiene acceso de administrador.');
       }
@@ -74,13 +80,16 @@ class _AccesoAdminState extends State<AccesoAdmin> {
         MaterialPageRoute(builder: (_) => const PanelAdmin()),
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) mensaje('Error: $e');
     } finally {
       if (mounted) setState(() => cargando = false);
     }
+  }
+
+  void mensaje(String texto) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(texto)),
+    );
   }
 
   @override
@@ -145,131 +154,415 @@ class _AccesoAdminState extends State<AccesoAdmin> {
   }
 }
 
-class PanelAdmin extends StatelessWidget {
+class PanelAdmin extends StatefulWidget {
   const PanelAdmin({super.key});
 
-  Future<void> cambiarEstado(
-      String id, String estado) async {
+  @override
+  State<PanelAdmin> createState() => _PanelAdminState();
+}
+
+class _PanelAdminState extends State<PanelAdmin> {
+  int pagina = 0;
+
+  Future<void> cambiarEstado(String id, String estado) async {
     await FirebaseFirestore.instance
         .collection('reparaciones')
         .doc(id)
         .update({'estado': estado});
   }
 
+  Future<void> salir() async {
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AccesoAdmin()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('EDPHONE ADMIN'),
+        title: Text(pagina == 0
+            ? 'EDPHONE ADMIN'
+            : 'MENSAJES DE CLIENTES'),
         backgroundColor: tarjeta,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (!context.mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const AccesoAdmin()),
-                (route) => false,
-              );
-            },
+            onPressed: salir,
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('reparaciones')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-                child: Text('Error al cargar las reparaciones'));
-          }
+      body: pagina == 0
+          ? reparaciones()
+          : const ListaConversaciones(),
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: tarjeta,
+        selectedIndex: pagina,
+        onDestinationSelected: (valor) {
+          setState(() => pagina = valor);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.build),
+            label: 'Reparaciones',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat),
+            label: 'Mensajes',
+          ),
+        ],
+      ),
+    );
+  }
 
-          if (!snapshot.hasData) {
-            return const Center(
-                child: CircularProgressIndicator());
-          }
+  Widget reparaciones() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reparaciones')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+              child: Text('Error al cargar las reparaciones.'));
+        }
 
-          final reparaciones = snapshot.data!.docs;
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (reparaciones.isEmpty) {
-            return const Center(
-                child: Text('Todavía no hay reparaciones.'));
-          }
+        final reparaciones = snapshot.data!.docs;
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: reparaciones.length,
-            itemBuilder: (context, index) {
-              final doc = reparaciones[index];
-              final datos = doc.data() as Map<String, dynamic>;
-              final estado =
-                  datos['estado'] ?? 'Pendiente';
+        if (reparaciones.isEmpty) {
+          return const Center(
+              child: Text('Todavía no hay reparaciones.'));
+        }
 
-              return Card(
-                color: tarjeta,
-                margin: const EdgeInsets.only(bottom: 14),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${datos['marca'] ?? ''} ${datos['modelo'] ?? ''}',
-                        style: const TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: reparaciones.length,
+          itemBuilder: (context, index) {
+            final doc = reparaciones[index];
+            final datos = doc.data() as Map<String, dynamic>;
+            final estado = datos['estado'] ?? 'Pendiente';
+
+            return Card(
+              color: tarjeta,
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${datos['marca'] ?? ''} ${datos['modelo'] ?? ''}',
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Cliente: ${datos['cliente'] ?? 'No indicado'}'),
+                    Text('Correo: ${datos['correo'] ?? 'No indicado'}'),
+                    Text('Problema: ${datos['falla'] ?? 'No indicado'}'),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Estado de reparación:',
+                      style: TextStyle(color: azul),
+                    ),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: [
+                        'Pendiente',
+                        'En reparación',
+                        'Terminado'
+                      ].contains(estado)
+                          ? estado
+                          : 'Pendiente',
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Pendiente',
+                          child: Text('Pendiente'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'En reparación',
+                          child: Text('En reparación'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Terminado',
+                          child: Text('Terminado'),
+                        ),
+                      ],
+                      onChanged: (nuevoEstado) {
+                        if (nuevoEstado != null) {
+                          cambiarEstado(doc.id, nuevoEstado);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+class ListaConversaciones extends StatelessWidget {
+  const ListaConversaciones({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('conversaciones')
+          .orderBy('actualizado', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Error al cargar los mensajes.'),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final conversaciones = snapshot.data!.docs;
+
+        if (conversaciones.isEmpty) {
+          return const Center(
+            child: Text('Todavía no hay mensajes de clientes.'),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: conversaciones.length,
+          itemBuilder: (context, index) {
+            final doc = conversaciones[index];
+            final datos = doc.data() as Map<String, dynamic>;
+
+            return Card(
+              color: tarjeta,
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: azul,
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                title: Text(datos['cliente'] ?? 'Cliente'),
+                subtitle: Text(datos['ultimoMensaje'] ?? ''),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatAdmin(
+                        uid: doc.id,
+                        nombre: datos['cliente'] ?? 'Cliente',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class ChatAdmin extends StatefulWidget {
+  final String uid;
+  final String nombre;
+
+  const ChatAdmin({
+    super.key,
+    required this.uid,
+    required this.nombre,
+  });
+
+  @override
+  State<ChatAdmin> createState() => _ChatAdminState();
+}
+
+class _ChatAdminState extends State<ChatAdmin> {
+  final texto = TextEditingController();
+  bool enviando = false;
+
+  Future<void> enviar() async {
+    final contenido = texto.text.trim();
+
+    if (contenido.isEmpty || enviando) return;
+
+    setState(() => enviando = true);
+
+    try {
+      final db = FirebaseFirestore.instance;
+
+      final conversacion =
+          db.collection('conversaciones').doc(widget.uid);
+
+      final nuevoMensaje =
+          conversacion.collection('mensajes').doc();
+
+      final lote = db.batch();
+
+      lote.set(
+        conversacion,
+        {
+          'ultimoMensaje': contenido,
+          'actualizado': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      lote.set(nuevoMensaje, {
+        'autor': 'admin',
+        'texto': contenido,
+        'fecha': FieldValue.serverTimestamp(),
+      });
+
+      await lote.commit();
+
+      texto.clear();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo enviar el mensaje.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => enviando = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    texto.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mensajes = FirebaseFirestore.instance
+        .collection('conversaciones')
+        .doc(widget.uid)
+        .collection('mensajes')
+        .orderBy('fecha')
+        .snapshots();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.nombre),
+        backgroundColor: tarjeta,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: mensajes,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Error al cargar la conversación.'),
+                  );
+                }
+
+                if (!snapshot.hasData) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final lista = snapshot.data!.docs;
+
+                if (lista.isEmpty) {
+                  return const Center(
+                    child: Text('Todavía no hay mensajes.'),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: lista.length,
+                  itemBuilder: (context, index) {
+                    final datos =
+                        lista[index].data() as Map<String, dynamic>;
+
+                    final esAdmin = datos['autor'] == 'admin';
+
+                    return Align(
+                      alignment: esAdmin
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          maxWidth: 280,
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: esAdmin ? azul : tarjeta,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              esAdmin ? 'Tú - EDPHONE' : widget.nombre,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(datos['texto'] ?? ''),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Text('Cliente: ${datos['cliente'] ?? 'No indicado'}'),
-                      Text('Correo: ${datos['correo'] ?? 'No indicado'}'),
-                      Text('Problema: ${datos['falla'] ?? 'No indicado'}'),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Estado de reparación:',
-                        style: TextStyle(color: azul),
-                      ),
-                      DropdownButton<String>(
-                        isExpanded: true,
-                        value: [
-                          'Pendiente',
-                          'En reparación',
-                          'Terminado'
-                        ].contains(estado)
-                            ? estado
-                            : 'Pendiente',
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Pendiente',
-                            child: Text('Pendiente'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'En reparación',
-                            child: Text('En reparación'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Terminado',
-                            child: Text('Terminado'),
-                          ),
-                        ],
-                        onChanged: (nuevoEstado) {
-                          if (nuevoEstado != null) {
-                            cambiarEstado(doc.id, nuevoEstado);
-                          }
-                        },
-                      ),
-                    ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: texto,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'Escribe tu respuesta...',
+                      filled: true,
+                    ),
                   ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: enviando ? null : enviar,
+                  icon: enviando
+                      ? const CircularProgressIndicator()
+                      : const Icon(Icons.send, color: azul),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
