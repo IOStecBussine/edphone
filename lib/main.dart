@@ -135,6 +135,28 @@ class _AccesoState extends State<Acceso> {
   final contrasena = TextEditingController();
   bool cargando = false;
 
+  Future<void> recuperarContrasena() async {
+    if (correo.text.trim().isEmpty) {
+      mensaje(context, 'Escribe tu correo electrónico.');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: correo.text.trim(),
+      );
+
+      if (mounted) {
+        mensaje(
+          context,
+          'Te enviamos un correo para recuperar tu contraseña.',
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) mensaje(context, traducirError(e.code));
+    }
+  }
+
   Future<void> ingresar() async {
     if (correo.text.trim().isEmpty || contrasena.text.isEmpty) {
       mensaje(context, 'Completa los campos.');
@@ -194,7 +216,16 @@ class _AccesoState extends State<Acceso> {
                 labelText: 'Contraseña',
               ),
             ),
-            const SizedBox(height: 25),
+            
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: recuperarContrasena,
+                child: const Text('¿Olvidaste tu contraseña?'),
+              ),
+            ),
+            const SizedBox(height: 10),
+
             BotonPrincipal(
               texto: cargando ? 'INGRESANDO...' : 'CONTINUAR',
               onPressed: cargando ? () {} : ingresar,
