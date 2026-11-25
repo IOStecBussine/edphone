@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:flutter/services.dart';
 const azul = Color(0xFF168BFF);
 const fondo = Color(0xFF06152F);
 const tarjeta = Color(0xFF102C50);
