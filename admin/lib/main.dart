@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -49,33 +48,25 @@ class _AccesoAdminState extends State<AccesoAdmin> {
   bool cargando = false;
 
   Future<void> ingresar() async {
-    if (correo.text.trim().isEmpty || clave.text.isEmpty) {
-      mensaje('Completa los campos.');
-      return;
-    }
-
     setState(() => cargando = true);
 
     try {
       final resultado = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
         email: correo.text.trim(),
-        password: clave.text,
+        password: clave.text.trim(),
       );
 
       final uid = resultado.user!.uid;
 
-      final documento = await FirebaseFirestore.instance
+      final admin = await FirebaseFirestore.instance
           .collection('administradores')
           .doc(uid)
           .get();
 
-      if (!documento.exists ||
-          documento.data()?['rol'] != 'admin') {
+      if (!admin.exists || admin.data()?['rol'] != 'admin') {
         await FirebaseAuth.instance.signOut();
-        throw Exception(
-          'Esta cuenta no tiene acceso de administrador.',
-        );
+        throw Exception('Esta cuenta no tiene permiso de administrador.');
       }
 
       if (!mounted) return;
@@ -87,16 +78,16 @@ class _AccesoAdminState extends State<AccesoAdmin> {
         ),
       );
     } catch (e) {
-      if (mounted) mensaje('Error: $e');
-    } finally {
-      if (mounted) setState(() => cargando = false);
-    }
-  }
+      if (!mounted) return;
 
-  void mensaje(String texto) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(texto)),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => cargando = false);
+      }
+    }
   }
 
   @override
@@ -113,16 +104,15 @@ class _AccesoAdminState extends State<AccesoAdmin> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(25),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.admin_panel_settings,
-                size: 85,
-                color: azul,
-              ),
+              const Icon(Icons.admin_panel_settings,
+                  color: azul, size: 85),
               const SizedBox(height: 15),
               const Text(
                 'EDPHONE ADMIN',
                 style: TextStyle(
+                  color: azul,
                   fontSize: 27,
                   fontWeight: FontWeight.bold,
                 ),
@@ -133,8 +123,8 @@ class _AccesoAdminState extends State<AccesoAdmin> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'Correo electrónico',
+                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.email),
-                  filled: true,
                 ),
               ),
               const SizedBox(height: 15),
@@ -143,14 +133,14 @@ class _AccesoAdminState extends State<AccesoAdmin> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Contraseña',
+                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
-                  filled: true,
                 ),
               ),
               const SizedBox(height: 25),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 52,
                 child: ElevatedButton(
                   onPressed: cargando ? null : ingresar,
                   child: cargando
@@ -165,7 +155,6 @@ class _AccesoAdminState extends State<AccesoAdmin> {
     );
   }
 }
-
 class PanelAdmin extends StatefulWidget {
   const PanelAdmin({super.key});
 
@@ -174,98 +163,110 @@ class PanelAdmin extends StatefulWidget {
 }
 
 class _PanelAdminState extends State<PanelAdmin> {
-  int pagina = 0;
-
-  Future<void> cambiarEstado(String id, String estado) async {
-    await FirebaseFirestore.instance
-        .collection('reparaciones')
-        .doc(id)
-        .update({'estado': estado});
-  }
+  final FirebaseFirestore db = FirebaseFirestore.instance;
 
   Future<void> avisarCliente(
-    Map<String, dynamic> datos, String reparacionId) async {
-  final uid = datos['uid'];
+    Map<String, dynamic> datos,
+    String reparacionId,
+  ) async {
+    final uid = (datos['uid'] ?? '').toString();
 
-  if (uid == null || uid.toString().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se encontró el cliente.')),
-    );
-    return;
-  }
-
-  final titulo = '¡Tu reparación está terminada!';
-  final mensaje =
-      'Tu ${datos['marca'] ?? ''} ${datos['modelo'] ?? ''} ya está listo. Puedes comunicarte con EDPHONE.';
-
-  try {
-    await FirebaseFirestore.instance
-        .collection('notificaciones')
-        .doc(uid)
-        .collection('avisos')
-        .add({
-      'titulo': titulo,
-      'mensaje': mensaje,
-      'reparacionId': reparacionId,
-      'fecha': FieldValue.serverTimestamp(),
-      'leida': false,
-    });
-
-    final usuario = FirebaseAuth.instance.currentUser;
-    if (usuario == null) {
-      throw Exception('No hay una sesión de administrador.');
+    if (uid.isEmpty) {
+      mostrarMensaje('La reparación no tiene UID del cliente.');
+      return;
     }
 
-    final token = await usuario.getIdToken();
-    final client = HttpClient();
+    const titulo = '¡Tu reparación está terminada!';
+    final marca = datos['marca'] ?? '';
+    final modelo = datos['modelo'] ?? '';
+    final mensaje = 'Tu equipo $marca $modelo está listo para retirar.';
 
     try {
-      final request = await client.postUrl(
+      // Primero guarda el aviso dentro de EDPHONE.
+      await db
+          .collection('notificaciones')
+          .doc(uid)
+          .collection('avisos')
+          .add({
+        'titulo': titulo,
+        'mensaje': mensaje,
+        'reparacionId': reparacionId,
+        'fecha': FieldValue.serverTimestamp(),
+        'leida': false,
+      });
+
+      // Después solicita el envío de la notificación externa.
+      final usuario = FirebaseAuth.instance.currentUser;
+
+      if (usuario == null) {
+        throw Exception('No hay una sesión de administrador activa.');
+      }
+
+      final token = await usuario.getIdToken(true);
+
+      final cliente = HttpClient();
+      final solicitud = await cliente.postUrl(
         Uri.parse(
           'https://edphone-notificaciones.edmilsonbogado39.workers.dev',
         ),
       );
 
-      request.headers.set(
+      solicitud.headers.set(
         HttpHeaders.authorizationHeader,
         'Bearer $token',
       );
-      request.headers.contentType = ContentType.json;
+      solicitud.headers.contentType = ContentType.json;
 
-      request.write(jsonEncode({
-        'targetUid': uid.toString(),
+      solicitud.write(jsonEncode({
+        'targetUid': uid,
         'title': titulo,
         'message': mensaje,
       }));
 
-      final response = await request.close();
-      final respuesta = await response.transform(utf8.decoder).join();
+      final respuesta = await solicitud.close();
+      final cuerpo = await respuesta.transform(utf8.decoder).join();
+      cliente.close();
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-  throw Exception('Error al enviar la notificación push: $respuesta');
+      if (respuesta.statusCode < 200 ||
+          respuesta.statusCode >= 300) {
+        throw Exception(
+          'HTTP ${respuesta.statusCode}: $cuerpo',
+        );
       }
-    } finally {
-      client.close();
-    }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Aviso y notificación enviados al cliente!'),
-        ),
+      mostrarMensaje(
+        'Aviso guardado. Respuesta del servidor: $cuerpo',
       );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'El aviso quedó guardado, pero no se pudo enviar la notificación push.',
-          ),
-        ),
+    } catch (e) {
+      mostrarMensaje(
+        'El aviso quedó guardado, pero falló el Push: $e',
       );
     }
   }
+
+  void mostrarMensaje(String mensaje) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> cambiarEstado(
+    String id,
+    String estado,
+  ) async {
+    try {
+      await db.collection('reparaciones').doc(id).update({
+        'estado': estado,
+      });
+      mostrarMensaje('Estado actualizado.');
+    } catch (e) {
+      mostrarMensaje('Error al actualizar: $e');
+    }
   }
 
   Future<void> salir() async {
@@ -286,412 +287,106 @@ class _PanelAdminState extends State<PanelAdmin> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          pagina == 0 ? 'EDPHONE ADMIN' : 'MENSAJES DE CLIENTES',
-        ),
+        title: const Text('EDPHONE ADMIN'),
         backgroundColor: tarjeta,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
             onPressed: salir,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
           ),
         ],
       ),
-      body: pagina == 0
-          ? reparaciones()
-          : const ListaConversaciones(),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: tarjeta,
-        selectedIndex: pagina,
-        onDestinationSelected: (valor) {
-          setState(() => pagina = valor);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.build),
-            label: 'Reparaciones',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat),
-            label: 'Mensajes',
-          ),
-        ],
-      ),
-    );
-  }
+      body: StreamBuilder<QuerySnapshot>(
+        stream: db.collection('reparaciones').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            );
+          }
 
-  Widget reparaciones() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('reparaciones')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(
-            child: Text('Error al cargar las reparaciones.'),
-          );
-        }
+          if (!snapshot.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
 
-        if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+          final documentos = snapshot.data!.docs;
 
-        final reparaciones = snapshot.data!.docs;
+          if (documentos.isEmpty) {
+            return const Center(
+              child: Text('No hay reparaciones registradas.'),
+            );
+          }
 
-        if (reparaciones.isEmpty) {
-          return const Center(
-            child: Text('Todavía no hay reparaciones.'),
-          );
-        }
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: documentos.length,
+            itemBuilder: (context, index) {
+              final documento = documentos[index];
+              final datos =
+                  documento.data() as Map<String, dynamic>;
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: reparaciones.length,
-          itemBuilder: (context, index) {
-            final doc = reparaciones[index];
-            final datos = doc.data() as Map<String, dynamic>;
-            final estado = datos['estado'] ?? 'Pendiente';
+              final marca = datos['marca'] ?? '';
+              final modelo = datos['modelo'] ?? '';
+              final falla = datos['falla'] ?? '';
+              final estado = datos['estado'] ?? 'Pendiente';
+              final cliente = datos['cliente'] ?? 'Cliente';
 
-            return Card(
-              color: tarjeta,
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${datos['marca'] ?? ''} ${datos['modelo'] ?? ''}',
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
+              return Card(
+                color: tarjeta,
+                margin: const EdgeInsets.only(bottom: 14),
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$marca $modelo',
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                          color: azul,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Cliente: ${datos['cliente'] ?? 'No indicado'}',
-                    ),
-                    Text(
-                      'Correo: ${datos['correo'] ?? 'No indicado'}',
-                    ),
-                    Text(
-                      'Problema: ${datos['falla'] ?? 'No indicado'}',
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Estado de reparación:',
-                      style: TextStyle(color: azul),
-                    ),
-                    DropdownButton<String>(
-                      isExpanded: true,
-                      value: [
-                        'Pendiente',
-                        'En reparación',
-                        'Terminado',
-                      ].contains(estado)
-                          ? estado
-                          : 'Pendiente',
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Pendiente',
-                          child: Text('Pendiente'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'En reparación',
-                          child: Text('En reparación'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Terminado',
-                          child: Text('Terminado'),
-                        ),
-                      ],
-                      onChanged: (nuevoEstado) {
-                        if (nuevoEstado != null) {
-                          cambiarEstado(doc.id, nuevoEstado);
-                        }
-                      },
-                    ),
-                    if (estado == 'Terminado') ...[
+                      const SizedBox(height: 8),
+                      Text('Cliente: $cliente'),
+                      Text('Falla: $falla'),
+                      Text('Estado: $estado'),
                       const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => cambiarEstado(
+                                documento.id,
+                                'En reparación',
+                              ),
+                              child: const Text('EN REPARACIÓN'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () =>
-                              avisarCliente(datos, doc.id),
-                          icon: const Icon(
-                            Icons.notifications_active,
+                          onPressed: () => avisarCliente(
+                            datos,
+                            documento.id,
                           ),
+                          icon: const Icon(Icons.notifications_active),
                           label: const Text('AVISAR AL CLIENTE'),
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class ListaConversaciones extends StatelessWidget {
-  const ListaConversaciones({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('conversaciones')
-          .orderBy('actualizado', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(
-            child: Text('Error al cargar los mensajes.'),
-          );
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        final conversaciones = snapshot.data!.docs;
-
-        if (conversaciones.isEmpty) {
-          return const Center(
-            child: Text('Todavía no hay mensajes de clientes.'),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: conversaciones.length,
-          itemBuilder: (context, index) {
-            final doc = conversaciones[index];
-            final datos = doc.data() as Map<String, dynamic>;
-
-            return Card(
-              color: tarjeta,
-              child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: azul,
-                  child: Icon(
-                    Icons.person,
-                    color: Colors.white,
                   ),
                 ),
-                title: Text(datos['cliente'] ?? 'Cliente'),
-                subtitle: Text(datos['ultimoMensaje'] ?? ''),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatAdmin(
-                        uid: doc.id,
-                        nombre: datos['cliente'] ?? 'Cliente',
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class ChatAdmin extends StatefulWidget {
-  final String uid;
-  final String nombre;
-
-  const ChatAdmin({
-    super.key,
-    required this.uid,
-    required this.nombre,
-  });
-
-  @override
-  State<ChatAdmin> createState() => _ChatAdminState();
-}
-
-class _ChatAdminState extends State<ChatAdmin> {
-  final texto = TextEditingController();
-  bool enviando = false;
-
-  Future<void> enviar() async {
-    final contenido = texto.text.trim();
-
-    if (contenido.isEmpty || enviando) return;
-
-    setState(() => enviando = true);
-
-    try {
-      final db = FirebaseFirestore.instance;
-
-      final conversacion =
-          db.collection('conversaciones').doc(widget.uid);
-
-      final nuevoMensaje =
-          conversacion.collection('mensajes').doc();
-
-      final lote = db.batch();
-
-      lote.set(
-        conversacion,
-        {
-          'ultimoMensaje': contenido,
-          'actualizado': FieldValue.serverTimestamp(),
+              );
+            },
+          );
         },
-        SetOptions(merge: true),
-      );
-
-      lote.set(nuevoMensaje, {
-        'autor': 'admin',
-        'texto': contenido,
-        'fecha': FieldValue.serverTimestamp(),
-      });
-
-      await lote.commit();
-
-      texto.clear();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo enviar el mensaje.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => enviando = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    texto.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final mensajes = FirebaseFirestore.instance
-        .collection('conversaciones')
-        .doc(widget.uid)
-        .collection('mensajes')
-        .orderBy('fecha')
-        .snapshots();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.nombre),
-        backgroundColor: tarjeta,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: mensajes,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Error al cargar la conversación.'),
-                  );
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                final lista = snapshot.data!.docs;
-
-                if (lista.isEmpty) {
-                  return const Center(
-                    child: Text('Todavía no hay mensajes.'),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: lista.length,
-                  itemBuilder: (context, index) {
-                    final datos =
-                        lista[index].data() as Map<String, dynamic>;
-
-                    final esAdmin = datos['autor'] == 'admin';
-
-                    return Align(
-                      alignment: esAdmin
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          maxWidth: 280,
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 5),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: esAdmin ? azul : tarjeta,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              esAdmin ? 'Tú - EDPHONE' : widget.nombre,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(datos['texto'] ?? ''),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: texto,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe tu respuesta...',
-                      filled: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: enviando ? null : enviar,
-                  icon: enviando
-                      ? const CircularProgressIndicator()
-                      : const Icon(Icons.send, color: azul),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
