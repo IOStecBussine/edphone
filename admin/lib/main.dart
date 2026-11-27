@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+import 'dart:io';
 
 const azul = Color(0xFF168BFF);
 const fondo = Color(0xFF06152F);
@@ -182,48 +184,88 @@ class _PanelAdminState extends State<PanelAdmin> {
   }
 
   Future<void> avisarCliente(
-      Map<String, dynamic> datos, String reparacionId) async {
-    final uid = datos['uid'];
+    Map<String, dynamic> datos, String reparacionId) async {
+  final uid = datos['uid'];
 
-    if (uid == null || uid.toString().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el cliente.'),
-        ),
-      );
-      return;
+  if (uid == null || uid.toString().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No se encontró el cliente.')),
+    );
+    return;
+  }
+
+  final titulo = '¡Tu reparación está terminada!';
+  final mensaje =
+      'Tu ${datos['marca'] ?? ''} ${datos['modelo'] ?? ''} ya está listo. Puedes comunicarte con EDPHONE.';
+
+  try {
+    await FirebaseFirestore.instance
+        .collection('notificaciones')
+        .doc(uid)
+        .collection('avisos')
+        .add({
+      'titulo': titulo,
+      'mensaje': mensaje,
+      'reparacionId': reparacionId,
+      'fecha': FieldValue.serverTimestamp(),
+      'leida': false,
+    });
+
+    final usuario = FirebaseAuth.instance.currentUser;
+    if (usuario == null) {
+      throw Exception('No hay una sesión de administrador.');
     }
+
+    final token = await usuario.getIdToken();
+    final client = HttpClient();
 
     try {
-      await FirebaseFirestore.instance
-          .collection('notificaciones')
-          .doc(uid)
-          .collection('avisos')
-          .add({
-        'titulo': '¡Tu reparación está terminada!',
-        'mensaje':
-            'Tu ${datos['marca'] ?? ''} ${datos['modelo'] ?? ''} ya está listo. Puedes comunicarte con EDPHONE.',
-        'reparacionId': reparacionId,
-        'fecha': FieldValue.serverTimestamp(),
-        'leida': false,
-      });
+      final request = await client.postUrl(
+        Uri.parse(
+          'https://edphone-notificaciones.edmilsonbogado39.workers.dev',
+        ),
+      );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Aviso enviado al cliente!'),
-          ),
-        );
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $token',
+      );
+      request.headers.contentType = ContentType.json;
+
+      request.write(jsonEncode({
+        'targetUid': uid.toString(),
+        'title': titulo,
+        'message': mensaje,
+      }));
+
+      final response = await request.close();
+      final respuesta = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Error al enviar la notificación push.');
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo enviar el aviso.'),
-          ),
-        );
-      }
+    } finally {
+      client.close();
     }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Aviso y notificación enviados al cliente!'),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El aviso quedó guardado, pero no se pudo enviar la notificación push.',
+          ),
+        ),
+      );
+    }
+  }
   }
 
   Future<void> salir() async {
