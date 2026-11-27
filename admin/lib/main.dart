@@ -242,7 +242,7 @@ class _PanelAdminState extends State<PanelAdmin> {
       final respuesta = await response.transform(utf8.decoder).join();
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Error al enviar la notificación push.');
+  throw Exception('Error al enviar la notificación push: $respuesta');
       }
     } finally {
       client.close();
